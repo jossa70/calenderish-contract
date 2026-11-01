@@ -1,0 +1,12 @@
+{
+  "name": "@jossa70/calenderish-contract",
+  "version": "0.1.0-SNAPSHOT",
+  "description": "Calenderish OpenAPI contract",
+  "files": ["src/openapi.yaml"],
+  "scripts": {
+    "lint": "redocly lint src/openapi.yaml"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.72.1"
+  }
+}

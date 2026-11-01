@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: Calenderish API
+  version: 0.1.0
+servers:
+  - url: /
+security:
+  - sessionCookie: []
+paths:
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      tags: [Me]
+      summary: Get the signed-in user
+      responses:
+        "200":
+          description: The signed-in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Problem"
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SESSION
+  responses:
+    Problem:
+      description: Error
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    User:
+      type: object
+      required: [id, email, displayName]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+    Problem:
+      description: RFC 9457 problem details with a stable error code
+      type: object
+      required: [title, status, code]
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        code:
+          type: string
