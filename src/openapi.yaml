@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Calenderish API
-  version: 0.1.0
+  version: 0.2.0
 servers:
   - url: /
 security:
@@ -21,6 +21,102 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Problem"
+  /api/v1/event-templates:
+    get:
+      operationId: listEventTemplates
+      tags: [EventTemplates]
+      summary: List the signed-in user's event templates
+      responses:
+        "200":
+          description: The user's event templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventTemplate"
+        "401":
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createEventTemplate
+      tags: [EventTemplates]
+      summary: Create an event template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventTemplateRequest"
+      responses:
+        "201":
+          description: The created event template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTemplate"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+  /api/v1/event-templates/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getEventTemplate
+      tags: [EventTemplates]
+      summary: Get an event template
+      responses:
+        "200":
+          description: The event template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTemplate"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+    put:
+      operationId: updateEventTemplate
+      tags: [EventTemplates]
+      summary: Update an event template
+      description: Existing calendar events created from the template are not affected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventTemplateRequest"
+      responses:
+        "200":
+          description: The updated event template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTemplate"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+    delete:
+      operationId: deleteEventTemplate
+      tags: [EventTemplates]
+      summary: Delete an event template
+      description: Existing calendar events created from the template are kept.
+      responses:
+        "204":
+          description: The event template was deleted
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     sessionCookie:
@@ -35,6 +131,52 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
   schemas:
+    LocalTime:
+      description: Local time of day in 24-hour HH:mm format
+      type: string
+      pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      examples: ["07:00"]
+    EventTemplateRequest:
+      description: >-
+        An end time earlier than the start time means the next day. Equal start
+        and end times are rejected.
+      type: object
+      required: [name, startTime, endTime, location, engineHeater]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        endTime:
+          $ref: "#/components/schemas/LocalTime"
+        location:
+          type: string
+          minLength: 1
+          maxLength: 500
+        engineHeater:
+          type: boolean
+    EventTemplate:
+      description: >-
+        A reusable template. An end time earlier than the start time means the
+        next day.
+      type: object
+      required: [id, name, startTime, endTime, location, engineHeater]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        endTime:
+          $ref: "#/components/schemas/LocalTime"
+        location:
+          type: string
+        engineHeater:
+          type: boolean
     User:
       type: object
       required: [id, email, displayName]
@@ -52,11 +194,33 @@ components:
       type: object
       required: [title, status, code]
       properties:
+        type:
+          type: string
+          format: uri-reference
         title:
           type: string
         status:
           type: integer
         detail:
           type: string
+        instance:
+          type: string
+          format: uri-reference
         code:
+          description: >-
+            Stable error code. VALIDATION_FAILED, NOT_AUTHENTICATED or NOT_FOUND
+            at this version; clients must tolerate new codes.
+          type: string
+        errors:
+          description: Per-field details when code is VALIDATION_FAILED
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldError"
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
           type: string
