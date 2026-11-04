@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Calenderish API
-  version: 0.2.0
+  version: 0.4.0
 servers:
   - url: /
 security:
@@ -117,6 +117,96 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+  /api/v1/calendar-events:
+    get:
+      operationId: listCalendarEvents
+      tags: [CalendarEvents]
+      summary: List the signed-in user's calendar events in a date range
+      description: Events are sorted by date, start time and name. An event belongs to the date it starts on.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First date, inclusive
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          description: Last date, inclusive, at most 366 days after from
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: The events in the range
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CalendarEvent"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+    post:
+      operationId: createCalendarEvent
+      tags: [CalendarEvents]
+      summary: Create a calendar event from a template
+      description: >-
+        The event gets a copy of the template's current values. A template can
+        only be applied once per date.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventRequest"
+      responses:
+        "201":
+          description: The created calendar event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          description: The template does not exist
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "409":
+          description: The template is already applied on this date, with code DUPLICATE_EVENT
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /api/v1/calendar-events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteCalendarEvent
+      tags: [CalendarEvents]
+      summary: Delete a calendar event
+      description: Other events from the same template are not affected.
+      responses:
+        "204":
+          description: The calendar event was deleted
+        "401":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
 components:
   securitySchemes:
     sessionCookie:
@@ -193,6 +283,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Label"
+    CalendarEventRequest:
+      type: object
+      required: [templateId, date]
+      properties:
+        templateId:
+          type: string
+          format: uuid
+        date:
+          description: The date the event starts on
+          type: string
+          format: date
+    CalendarEvent:
+      description: >-
+        A copy of a template applied to a date. An end time earlier than the
+        start time means the next day.
+      type: object
+      required: [id, date, name, startTime, endTime, location, labels]
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          description: The date the event starts on
+          type: string
+          format: date
+        name:
+          type: string
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        endTime:
+          $ref: "#/components/schemas/LocalTime"
+        location:
+          type: string
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/Label"
+        templateId:
+          description: The template it was created from, absent if that template has been deleted
+          type: string
+          format: uuid
     User:
       type: object
       required: [id, email, displayName]
@@ -225,8 +356,8 @@ components:
         code:
           description: >-
             Stable error code. VALIDATION_FAILED, NOT_AUTHENTICATED, NOT_FOUND,
-            REQUEST_REJECTED or INTERNAL_ERROR at this version; clients must
-            tolerate new codes.
+            DUPLICATE_EVENT, REQUEST_REJECTED or INTERNAL_ERROR at this version;
+            clients must tolerate new codes.
           type: string
         errors:
           description: Per-field details when code is VALIDATION_FAILED
