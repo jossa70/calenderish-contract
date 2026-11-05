@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Calenderish API
-  version: 0.5.0
+  version: 0.5.1
 servers:
   - url: /
 security:
@@ -323,7 +323,9 @@ components:
           type: string
           format: uuid
         date:
-          description: The date the event starts on
+          description: >-
+            The date the event starts on. Must not be earlier than today in the
+            user's time zone, or the request fails with VALIDATION_FAILED.
           type: string
           format: date
     CalendarEvent:
