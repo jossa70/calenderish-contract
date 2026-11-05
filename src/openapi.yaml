@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Calenderish API
-  version: 0.4.0
+  version: 0.5.0
 servers:
   - url: /
 security:
@@ -157,7 +157,8 @@ paths:
       summary: Create a calendar event from a template
       description: >-
         The event gets a copy of the template's current values. A template can
-        only be applied once per date.
+        only be applied once per date. If Google cannot be reached, the event
+        is still created with syncStatus CREATING and is sent to Google later.
       requestBody:
         required: true
         content:
@@ -181,6 +182,18 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+        "403":
+          description: Google needs to be connected again, with code GOOGLE_RECONNECT_REQUIRED. No event is created.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          description: Google refused the event, with code GOOGLE_REJECTED. No event is created.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "409":
           description: The template is already applied on this date, with code DUPLICATE_EVENT
           content:
@@ -199,14 +212,33 @@ paths:
       operationId: deleteCalendarEvent
       tags: [CalendarEvents]
       summary: Delete a calendar event
-      description: Other events from the same template are not affected.
+      description: >-
+        Also deletes the event from Google Calendar. An event that is already
+        gone from Google counts as deleted. Other events from the same template
+        are not affected.
       responses:
+        "202":
+          description: >-
+            Google could not be reached. The event now has syncStatus DELETING
+            and is deleted later.
         "204":
           description: The calendar event was deleted
         "401":
           $ref: "#/components/responses/Problem"
+        "403":
+          description: Google needs to be connected again, with code GOOGLE_RECONNECT_REQUIRED. The event is kept.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+        "502":
+          description: Google refused to delete the event, with code GOOGLE_REJECTED. The event is kept.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
 components:
   securitySchemes:
     sessionCookie:
@@ -299,7 +331,7 @@ components:
         A copy of a template applied to a date. An end time earlier than the
         start time means the next day.
       type: object
-      required: [id, date, name, startTime, endTime, location, labels]
+      required: [id, date, name, startTime, endTime, location, labels, syncStatus]
       properties:
         id:
           type: string
@@ -320,6 +352,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Label"
+        syncStatus:
+          description: >-
+            SYNCED when Google has the event. CREATING and DELETING mean that
+            the change has not reached Google yet.
+          type: string
+          enum: [CREATING, SYNCED, DELETING]
         templateId:
           description: The template it was created from, absent if that template has been deleted
           type: string
@@ -356,8 +394,9 @@ components:
         code:
           description: >-
             Stable error code. VALIDATION_FAILED, NOT_AUTHENTICATED, NOT_FOUND,
-            DUPLICATE_EVENT, REQUEST_REJECTED or INTERNAL_ERROR at this version;
-            clients must tolerate new codes.
+            DUPLICATE_EVENT, GOOGLE_RECONNECT_REQUIRED, GOOGLE_REJECTED,
+            REQUEST_REJECTED or INTERNAL_ERROR at this version; clients must
+            tolerate new codes.
           type: string
         errors:
           description: Per-field details when code is VALIDATION_FAILED
