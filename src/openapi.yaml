@@ -265,6 +265,18 @@ components:
       maxLength: 50
       pattern: "^[^\\r\\n]+$"
       examples: ["Motorvärmare"]
+    Reminder:
+      description: >-
+        A pop-up reminder in Google Calendar, shown the given number of minutes
+        before the event starts.
+      type: object
+      required: [minutes]
+      properties:
+        minutes:
+          type: integer
+          minimum: 0
+          maximum: 40320
+          examples: [30]
     EventTemplateRequest:
       description: >-
         An end time earlier than the start time means the next day. Equal start
@@ -293,12 +305,23 @@ components:
           maxItems: 20
           items:
             $ref: "#/components/schemas/Label"
+        reminders:
+          description: >-
+            Pop-up reminders. Two reminders with the same number of minutes are
+            rejected. An empty list means that the event gets no reminders at
+            all, not the calendar's default reminders. Absent means an empty
+            list.
+          type: array
+          maxItems: 5
+          default: []
+          items:
+            $ref: "#/components/schemas/Reminder"
     EventTemplate:
       description: >-
         A reusable template. An end time earlier than the start time means the
         next day.
       type: object
-      required: [id, name, startTime, endTime, location, labels]
+      required: [id, name, startTime, endTime, location, labels, reminders]
       properties:
         id:
           type: string
@@ -315,6 +338,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Label"
+        reminders:
+          description: Pop-up reminders, sorted by minutes. An empty list means no reminders.
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
     CalendarEventRequest:
       type: object
       required: [templateId, date]
@@ -333,7 +361,7 @@ components:
         A copy of a template applied to a date. An end time earlier than the
         start time means the next day.
       type: object
-      required: [id, date, name, startTime, endTime, location, labels, syncStatus]
+      required: [id, date, name, startTime, endTime, location, labels, reminders, syncStatus]
       properties:
         id:
           type: string
@@ -354,6 +382,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Label"
+        reminders:
+          description: Pop-up reminders, sorted by minutes. An empty list means no reminders.
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
         syncStatus:
           description: >-
             SYNCED when Google has the event. CREATING and DELETING mean that
