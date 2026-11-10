@@ -1,6 +1,6 @@
 {
   "name": "@jossa70/calenderish-contract",
-  "version": "0.5.1-SNAPSHOT",
+  "version": "0.6.0-SNAPSHOT",
   "description": "Calenderish OpenAPI contract",
   "files": [
     "src/openapi.yaml"
