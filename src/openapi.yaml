@@ -376,6 +376,10 @@ components:
           format: email
         displayName:
           type: string
+        pictureUrl:
+          description: The user's Google profile picture, absent if Google provides none
+          type: string
+          format: uri
     Problem:
       description: RFC 9457 problem details with a stable error code
       type: object
