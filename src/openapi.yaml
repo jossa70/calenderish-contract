@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Calenderish API
-  version: 0.5.1
+  version: 0.8.0
 servers:
   - url: /
 security:
@@ -156,9 +156,13 @@ paths:
       tags: [CalendarEvents]
       summary: Create a calendar event from a template
       description: >-
-        The event gets a copy of the template's current values. A template can
-        only be applied once per date. If Google cannot be reached, the event
-        is still created with syncStatus CREATING and is sent to Google later.
+        The event gets a copy of the template's current values, with the
+        template's variables and calculations replaced by their values. A
+        template without variables can only be applied once per date. A
+        template with variables can be applied several times on the same date,
+        but not twice with the same variable values. If Google cannot be
+        reached, the event is still created with syncStatus CREATING and is
+        sent to Google later.
       requestBody:
         required: true
         content:
@@ -195,7 +199,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
         "409":
-          description: The template is already applied on this date, with code DUPLICATE_EVENT
+          description: >-
+            The template is already applied on this date, with the same
+            variable values if it has variables, with code DUPLICATE_EVENT
           content:
             application/problem+json:
               schema:
@@ -258,6 +264,14 @@ components:
       type: string
       pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
       examples: ["07:00"]
+    TemplateTime:
+      description: >-
+        A time of day in 24-hour HH:mm format, or exactly one variable or
+        calculation and nothing else, such as {start=14:00} or [start + 2h].
+        See EventTemplateRequest.
+      type: string
+      pattern: "^(([01][0-9]|2[0-3]):[0-5][0-9]|\\{[^{}\\[\\]\\r\\n]{1,98}\\}|\\[[^{}\\[\\]\\r\\n]{1,98}\\])$"
+      examples: ["07:00", "{start=14:00}", "[start + 2h]"]
     Label:
       description: A single line of free text
       type: string
@@ -281,6 +295,22 @@ components:
       description: >-
         An end time earlier than the start time means the next day. Equal start
         and end times are rejected.
+
+
+        The name, the location, each label and the times can contain variables
+        and calculations, which are filled in when the template is applied to
+        a date. A variable is written {name} or {name=default}. A name consists
+        of letters, digits and underscores, and case does not matter. Each
+        variable is written in braces at most once per template. A variable
+        without a default must be given a value when the template is applied.
+        A calculation is written in brackets, such as [start + 2h] or
+        [start - 1h30m]: a variable or an HH:mm time, followed by any number of
+        added or subtracted durations in h, m or min. Its result is an HH:mm
+        time that wraps around midnight. A variable can be used in calculations
+        without being written in braces, and then it has no default. A variable
+        that a time or a calculation uses must have a time as its value. A
+        template has at most 10 variables. The characters { } [ ] are only
+        allowed as part of a variable or a calculation.
       type: object
       required: [name, startTime, endTime, location, labels]
       properties:
@@ -289,9 +319,9 @@ components:
           minLength: 1
           maxLength: 200
         startTime:
-          $ref: "#/components/schemas/LocalTime"
+          $ref: "#/components/schemas/TemplateTime"
         endTime:
-          $ref: "#/components/schemas/LocalTime"
+          $ref: "#/components/schemas/TemplateTime"
         location:
           type: string
           minLength: 1
@@ -319,7 +349,9 @@ components:
     EventTemplate:
       description: >-
         A reusable template. An end time earlier than the start time means the
-        next day.
+        next day. The
+        fields can contain variables and calculations, see
+        EventTemplateRequest.
       type: object
       required: [id, name, startTime, endTime, location, labels, reminders]
       properties:
@@ -329,9 +361,9 @@ components:
         name:
           type: string
         startTime:
-          $ref: "#/components/schemas/LocalTime"
+          $ref: "#/components/schemas/TemplateTime"
         endTime:
-          $ref: "#/components/schemas/LocalTime"
+          $ref: "#/components/schemas/TemplateTime"
         location:
           type: string
         labels:
@@ -356,6 +388,21 @@ components:
             user's time zone, or the request fails with VALIDATION_FAILED.
           type: string
           format: date
+        variables:
+          description: >-
+            A value for each variable in the template, keyed by the variable's
+            name, where case does not matter. Values are used as they are and
+            are never read as variables or calculations. A value for a variable
+            that a time or a calculation uses must be an HH:mm time. A missing,
+            blank, invalid or unknown variable fails with VALIDATION_FAILED and
+            the field variables.<name>, as does a filled-in value that breaks
+            the rules of the field it ends up in. Absent means no values, which
+            is enough for a template without variables.
+          type: object
+          maxProperties: 10
+          additionalProperties:
+            type: string
+            maxLength: 200
     CalendarEvent:
       description: >-
         A copy of a template applied to a date. An end time earlier than the
